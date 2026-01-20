@@ -47,12 +47,13 @@ const LandingPage = () => {
       clientTemplateID: 'template_ou1pg2i',  // Ejemplo: 'template_xyz789'
       adminTemplateID: 'template_oy88o8n',    // Ejemplo: 'template_admin456'
       publicKey: 'YPwpvvK55C0l4dQXV',        // Ejemplo: 'AbCd1234EfGh5678'
-      adminEmail: 'juanospina0602@gmail.com'   // Tu email para recibir notificaciones
+      adminEmail: 'juanospina0602@gmail.com',   // Tu email para recibir notificaciones
+      enabled: true  // Cambia a false para desactivar EmailJS
     },
 
     // WhatsApp automático vía Netlify Functions
     whatsapp: {
-      enabled: false  // Cambia a true cuando configures Ultramsg y Netlify
+      enabled: true  // Cambia a true cuando configures Ultramsg y Netlify
     }
   };
 
