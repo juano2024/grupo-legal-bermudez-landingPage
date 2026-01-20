@@ -1,9 +1,23 @@
 // src/components/LandingPage.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import emailjs from '@emailjs/browser';
 import './LandingPage.css';
 
 const LandingPage = () => {
+  // Inicializar EmailJS cuando el componente se monta
+  useEffect(() => {
+    // Solo inicializar si EmailJS está habilitado
+    if (CONFIG.emailJS.enabled && CONFIG.emailJS.publicKey !== 'TU_PUBLIC_KEY') {
+      try {
+        emailjs.init(CONFIG.emailJS.publicKey);
+        console.log('✅ EmailJS inicializado correctamente');
+      } catch (error) {
+        console.error('❌ Error al inicializar EmailJS:', error);
+      }
+    } else {
+      console.warn('⚠️ EmailJS no está configurado. Actualiza las credenciales en CONFIG.emailJS');
+    }
+  }, []);
   // ========================================
   // ESTADO DEL COMPONENTE
   // ========================================
@@ -22,10 +36,10 @@ const LandingPage = () => {
   const [error, setError] = useState('');
 
   // ========================================
-  // CONFIGURACIÓN - WHATSAPP Y EMAILJS
+  // CONFIGURACIÓN - ¡CAMBIA ESTOS VALORES!
   // ========================================
   const CONFIG = {
-    whatsappNumber: '573152992963',
+    whatsappNumber: '573173815319',
     
     // Configuración de EmailJS (obtén estos valores en emailjs.com)
     emailJS: {
@@ -34,6 +48,11 @@ const LandingPage = () => {
       adminTemplateID: 'template_oy88o8n',    // Ejemplo: 'template_admin456'
       publicKey: 'YPwpvvK55C0l4dQXV',        // Ejemplo: 'AbCd1234EfGh5678'
       adminEmail: 'juanospina0602@gmail.com'   // Tu email para recibir notificaciones
+    },
+
+    // WhatsApp automático vía Netlify Functions
+    whatsapp: {
+      enabled: false  // Cambia a true cuando configures Ultramsg y Netlify
     }
   };
 
@@ -114,6 +133,8 @@ const LandingPage = () => {
   // ========================================
   const enviarEmailCliente = async () => {
     try {
+      console.log('📧 Intentando enviar email al cliente...');
+      
       const submissionDate = new Date().toLocaleString('en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -132,21 +153,25 @@ const LandingPage = () => {
         caseType: formData.caseType,
         description: formData.description,
         submissionDate: submissionDate,
-        reply_to: formData.emailAddress
+        reply_to: formData.emailAddress,
+        to_email: formData.emailAddress  // Email del cliente
       };
 
-      await emailjs.send(
+      console.log('Datos a enviar:', templateParams);
+
+      const result = await emailjs.send(
         CONFIG.emailJS.serviceID,
         CONFIG.emailJS.clientTemplateID,
-        templateParams,
-        CONFIG.emailJS.publicKey
+        templateParams
       );
 
-      console.log('✅ Email de confirmación enviado al cliente');
+      console.log('✅ Email de confirmación enviado al cliente:', result.text);
       return true;
 
     } catch (error) {
-      console.error('❌ Error al enviar email al cliente:', error);
+      console.error('❌ Error detallado al enviar email al cliente:', error);
+      console.error('Error text:', error.text);
+      console.error('Error status:', error.status);
       return false;
     }
   };
@@ -156,6 +181,8 @@ const LandingPage = () => {
   // ========================================
   const enviarEmailAdmin = async () => {
     try {
+      console.log('📧 Intentando enviar email al administrador...');
+      
       const submissionDate = new Date().toLocaleString('en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -178,18 +205,21 @@ const LandingPage = () => {
         reply_to: formData.emailAddress
       };
 
-      await emailjs.send(
+      console.log('Datos a enviar:', templateParams);
+
+      const result = await emailjs.send(
         CONFIG.emailJS.serviceID,
         CONFIG.emailJS.adminTemplateID,
-        templateParams,
-        CONFIG.emailJS.publicKey
+        templateParams
       );
 
-      console.log('✅ Email de notificación enviado al administrador');
+      console.log('✅ Email de notificación enviado al administrador:', result.text);
       return true;
 
     } catch (error) {
-      console.error('❌ Error al enviar email al administrador:', error);
+      console.error('❌ Error detallado al enviar email al administrador:', error);
+      console.error('Error text:', error.text);
+      console.error('Error status:', error.status);
       return false;
     }
   };
@@ -229,30 +259,60 @@ const LandingPage = () => {
   };
 
   // ========================================
-  // FUNCIÓN: ENVIAR A WHATSAPP
+  // FUNCIÓN: ENVIAR A WHATSAPP VÍA NETLIFY FUNCTION
   // ========================================
-  const enviarAWhatsApp = async () => {
-  try {
-    const response = await fetch("/.netlify/functions/send-whatsapp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(formData)
-    });
-
-    if (!response.ok) {
-      throw new Error("Error calling Netlify Function");
+  const enviarWhatsAppNetlify = async () => {
+    if (!CONFIG.whatsapp.enabled) {
+      console.log('⏭️ WhatsApp automático deshabilitado');
+      return true;
     }
 
-    console.log("✅ Mensaje enviado al backend (Netlify Function)");
-    return true;
+    try {
+      console.log('📱 Enviando WhatsApp vía Netlify Function...');
 
-  } catch (error) {
-    console.error("❌ Error enviando a Netlify Function:", error);
-    return false;
-  }
-};
+      const response = await fetch('/.netlify/functions/send-whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          phoneNumber: formData.phoneNumber,
+          emailAddress: formData.emailAddress,
+          zipCode: formData.zipCode,
+          caseType: formData.caseType,
+          description: formData.description
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al enviar WhatsApp');
+      }
+
+      console.log('✅ WhatsApp enviado automáticamente:', result);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Error al enviar WhatsApp:', error);
+      // No bloqueamos el flujo si falla WhatsApp
+      return false;
+    }
+  };
+
+  const limpiarFormulario = () => {
+    setFormData({
+      firstName: '',
+      lastName: '',
+      phoneNumber: '',
+      emailAddress: '',
+      zipCode: '',
+      caseType: '',
+      description: ''
+    });
+  };
 
   // ========================================
   // FUNCIÓN PRINCIPAL: ENVIAR FORMULARIO
@@ -271,16 +331,30 @@ const LandingPage = () => {
       // 1. Enviar a Netlify Forms
       await enviarANetlify();
 
-      // 2. Enviar email de confirmación al cliente
-      await enviarEmailCliente();
+      // 2. Enviar emails solo si EmailJS está configurado
+      if (CONFIG.emailJS.enabled && CONFIG.emailJS.publicKey !== 'TU_PUBLIC_KEY') {
+        // Email al cliente
+        const clientEmailSent = await enviarEmailCliente();
+        if (clientEmailSent) {
+          console.log('✅ Email al cliente enviado');
+        }
 
-      // 3. Enviar email de notificación al administrador (tú)
-      await enviarEmailAdmin();
+        // Email al admin
+        const adminEmailSent = await enviarEmailAdmin();
+        if (adminEmailSent) {
+          console.log('✅ Email al admin enviado');
+        }
+      } else {
+        console.warn('⚠️ EmailJS no configurado - saltando envío de emails');
+      }
 
-      // 4. Abrir WhatsApp
-      enviarAWhatsApp();
+      // 3. Enviar WhatsApp (automático vía Netlify Function)
+      if (CONFIG.whatsapp.enabled) {
+        await enviarWhatsAppNetlify();
+      }
+      // Si quieres DESACTIVAR WhatsApp completamente, comenta la línea de arriba
 
-      // 5. Mostrar éxito
+      // 4. Mostrar éxito
       setSuccess(true);
       limpiarFormulario();
 
